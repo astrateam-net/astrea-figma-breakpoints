@@ -3,6 +3,7 @@
   "compilerOptions": {
     "noEmit": true,
     "skipLibCheck": true,
+    "target": "ES2020",
     "typeRoots": ["node_modules/@figma", "node_modules/@types"]
   },
   "extends": "@create-figma-plugin/tsconfig",

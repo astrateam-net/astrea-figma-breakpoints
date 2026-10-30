@@ -38,7 +38,9 @@
   },
   "javascript": {
     "formatter": {
-      "quoteStyle": "double",
+      "arrowParentheses": "asNeeded",
+      "bracketSpacing": false,
+      "quoteStyle": "single",
       "trailingCommas": "all"
     }
   },
@@ -46,7 +48,16 @@
     "enabled": true,
     "rules": {
       "recommended": true,
+      "suspicious": {
+        "noExplicitAny": "error"
+      },
       "style": {
+        "noDefaultExport": "error",
+        "noNonNullAssertion": "error",
+        "useFilenamingConvention": {
+          "level": "error",
+          "options": { "filenameCases": ["kebab-case"] }
+        },
         "noInferrableTypes": "error",
         "noParameterAssign": "error",
         "noUnusedTemplateLiteral": "error",
@@ -60,6 +71,16 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["apps/plugin/src/main.ts", "apps/plugin/src/ui.tsx"],
+      "linter": {
+        "rules": {
+          "style": { "noDefaultExport": "off" }
+        }
+      }
+    }
+  ],
   "vcs": {
     "clientKind": "git",
     "defaultBranch": "main",

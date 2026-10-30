@@ -21,7 +21,7 @@ You draw each route once per breakpoint (`Home`, `Home - Tablet L`,
 Frame naming, devices and ranges, variable collections and the variant
 property are settings; the defaults are those of the AstraMotors website.
 
-**Status:** early development. Not yet on Figma Community.
+**Status:** early development. Not yet on Figma Community. Screens and behaviour: [docs/ux.md](docs/ux.md).
 
 ## Install
 

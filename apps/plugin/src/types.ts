@@ -1,20 +1,37 @@
-import type { FrameName } from "@astrea/breakpoints-core";
-import type { EventHandler } from "@create-figma-plugin/utilities";
+import type {RouteRow, Settings} from '@astrea/breakpoints-core';
+import type {EventHandler} from '@create-figma-plugin/utilities';
+import type {PageInfo, ScanResult} from './scan';
 
-export interface SelectedFrame extends FrameName {
-  id: string;
-  name: string;
-  width: number;
+/** Everything the UI shows, sent by main after every change. */
+export interface PluginState {
+  /** No settings stored in this file yet: show the setup wizard. */
+  firstRun: boolean;
+  settings: Settings;
+  pages: PageInfo[];
+  scan: ScanResult;
+  rows: RouteRow[];
 }
 
-/** main → ui: the selected top-level frames, parsed. */
-export interface SelectionHandler extends EventHandler {
-  name: "SELECTION";
-  handler: (frames: SelectedFrame[]) => void;
+/** main → ui */
+export interface StateHandler extends EventHandler {
+  name: 'STATE';
+  handler: (state: PluginState) => void;
 }
 
-/** ui → main: the UI is mounted and wants the current selection. */
+/** ui → main: the UI is mounted and wants the state. */
 export interface ReadyHandler extends EventHandler {
-  name: "READY";
+  name: 'READY';
   handler: () => void;
+}
+
+/** ui → main: scan another page. */
+export interface ScanHandler extends EventHandler {
+  name: 'SCAN';
+  handler: (pageId: string) => void;
+}
+
+/** ui → main: select these nodes on the canvas and zoom to them. */
+export interface RevealHandler extends EventHandler {
+  name: 'REVEAL';
+  handler: (ids: string[]) => void;
 }

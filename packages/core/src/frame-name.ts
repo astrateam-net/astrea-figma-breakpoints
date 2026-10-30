@@ -12,10 +12,10 @@ export interface FrameName {
 }
 
 /** Suffixes of the AstraMotors website; a setting, not a rule of the plugin. */
-export const DEFAULT_SUFFIXES = ["Tablet L", "Tablet", "Mobile", "Wide"];
+export const DEFAULT_SUFFIXES = ['Tablet L', 'Tablet', 'Mobile', 'Wide'];
 
-const STATE_SEPARATOR = " — ";
-const BREAKPOINT_SEPARATOR = " - ";
+const STATE_SEPARATOR = ' — ';
+const BREAKPOINT_SEPARATOR = ' - ';
 
 export function parseFrameName(
   name: string,
@@ -36,7 +36,7 @@ export function parseFrameName(
 
   const stateAt = rest.indexOf(STATE_SEPARATOR);
   if (stateAt === -1) {
-    return { route: rest, state: null, breakpoint };
+    return {route: rest, state: null, breakpoint};
   }
   return {
     route: rest.slice(0, stateAt),
@@ -45,11 +45,7 @@ export function parseFrameName(
   };
 }
 
-export function formatFrameName({
-  route,
-  state,
-  breakpoint,
-}: FrameName): string {
+export function formatFrameName({route, state, breakpoint}: FrameName): string {
   let name = route;
   if (state) name += STATE_SEPARATOR + state;
   if (breakpoint) name += BREAKPOINT_SEPARATOR + breakpoint;
