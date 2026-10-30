@@ -17,13 +17,16 @@ import {emit, on} from '@create-figma-plugin/utilities';
 // biome-ignore lint/correctness/noUnusedImports: create-figma-plugin builds JSX with the classic factory `h`
 import {h} from 'preact';
 import {useEffect, useMemo, useState} from 'preact/hooks';
+import {CHECK_PAGE_NAME} from './build';
 import {BreakpointsStep} from './setup/breakpoints-step';
 import {DevicesStep} from './setup/devices-step';
 import {RoutesStep} from './setup/routes-step';
 import {ScanStep} from './setup/scan-step';
-import type {StepProps} from './setup/step-props';
+import {plural, type StepProps} from './setup/step-props';
 import {ThemesStep} from './setup/themes-step';
 import type {
+  BuildHandler,
+  BuiltHandler,
   PluginState,
   ReadyHandler,
   SaveHandler,
@@ -129,20 +132,81 @@ function Setup({state, onSaved}: {state: PluginState; onSaved: () => void}) {
   );
 }
 
-function Saved({onEdit}: {onEdit: () => void}) {
+type BuildState =
+  | {status: 'idle'}
+  | {status: 'building'}
+  | {status: 'done'; copies: number; gaps: number}
+  | {status: 'failed'; error: string};
+
+function Check({state, onEdit}: {state: PluginState; onEdit: () => void}) {
+  const [build, setBuild] = useState<BuildState>({status: 'idle'});
+  const {settings, scan} = state;
+
+  useEffect(
+    () =>
+      on<BuiltHandler>('BUILT', result =>
+        setBuild(
+          'error' in result
+            ? {status: 'failed', error: result.error}
+            : {status: 'done', ...result},
+        ),
+      ),
+    [],
+  );
+
+  const rows = buildRouteTable(
+    scan.frames,
+    settings.breakpoints,
+    settings.overrides,
+    settings.theme.collectionKey,
+  );
+  const devices = settings.devices.filter(d => d.enabled).length;
+  const modes =
+    settings.theme.collectionKey && settings.theme.modeNames.length > 0
+      ? settings.theme.modeNames.join(' and ')
+      : 'the default theme';
+
   return (
     <Container space="medium">
       <VerticalSpace space="large" />
       <Text>
-        <Bold>Setup saved in this file</Bold>
+        <Bold>Check</Bold>
       </Text>
       <VerticalSpace space="small" />
       <Text>
         <Muted>
-          Everyone who opens this file gets the same settings. Building the
-          check page comes next.
+          Builds the page “{CHECK_PAGE_NAME}”: {plural(rows.length, 'route')} on{' '}
+          {plural(devices, 'device')}, in {modes}. The page is rebuilt as a
+          whole; anything else on it stays.
         </Muted>
       </Text>
+      <VerticalSpace space="large" />
+      <Button
+        fullWidth
+        loading={build.status === 'building'}
+        onClick={() => {
+          setBuild({status: 'building'});
+          emit<BuildHandler>('BUILD');
+        }}
+      >
+        Build
+      </Button>
+      <VerticalSpace space="medium" />
+      {build.status === 'done' ? (
+        <Text>
+          Built {plural(build.copies, 'copy', 'copies')}
+          {build.gaps > 0 ? (
+            <Muted> · {build.gaps} without a frame (grey placeholders)</Muted>
+          ) : null}
+        </Text>
+      ) : null}
+      {build.status === 'failed' ? (
+        <Text>
+          <span style={{color: 'var(--figma-color-text-danger)'}}>
+            {build.error}
+          </span>
+        </Text>
+      ) : null}
       <VerticalSpace space="large" />
       <Button onClick={onEdit} secondary>
         Edit setup
@@ -172,7 +236,7 @@ function Plugin() {
       />
     );
   }
-  return <Saved onEdit={() => setEditing(true)} />;
+  return <Check onEdit={() => setEditing(true)} state={state} />;
 }
 
 export default render(Plugin);

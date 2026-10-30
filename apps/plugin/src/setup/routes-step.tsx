@@ -19,6 +19,13 @@ const CELL = {
   whiteSpace: 'nowrap',
 };
 
+// The plugin UI runs in quirks mode, where tables don't inherit the font.
+const TABLE = {
+  borderCollapse: 'collapse',
+  font: 'inherit',
+  width: '100%',
+};
+
 const CELL_BUTTON = {
   background: 'none',
   border: 'none',
@@ -28,10 +35,9 @@ const CELL_BUTTON = {
   padding: '2px 6px',
 };
 
-/** "L D" for Light + Dark frames, "✓" without themes, "—" for none. */
+/** "L D" for Light + Dark frames, "?" for a frame without a theme mode. */
 function cellLabel(cell: RouteCell): string {
-  if (cell.frames.length === 0) return '—';
-  const themes = cell.frames.map(f => f.theme?.charAt(0) ?? '✓');
+  const themes = cell.frames.map(f => f.theme?.charAt(0) ?? '?');
   return [...new Set(themes)].join(' ');
 }
 
@@ -57,18 +63,22 @@ export function RoutesStep({state, draft, rows}: StepProps) {
       <VerticalSpace space="small" />
       <Text>
         <Muted>
-          Letters are the themes found (L = Light, D = Dark). Click a cell to
-          see its frames.
+          Which frame each route shows at each breakpoint. Letters are the
+          themes found (L = Light, D = Dark); ? = a frame with no theme mode
+          set. Click a cell to select its frames.
         </Muted>
       </Text>
       <VerticalSpace space="medium" />
       <div style={{overflowX: 'auto'}}>
-        <table style={{borderCollapse: 'collapse', width: '100%'}}>
+        <table style={TABLE}>
           <thead>
             <tr>
               <th />
               {breakpoints.map(b => (
-                <th key={b.id} style={{...CELL, borderTop: 'none'}}>
+                <th
+                  key={b.id}
+                  style={{...CELL, borderTop: 'none', fontWeight: 'normal'}}
+                >
                   <Text>
                     <Muted>{b.name}</Muted>
                   </Text>

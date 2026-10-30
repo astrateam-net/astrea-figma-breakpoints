@@ -40,3 +40,15 @@ export interface SaveHandler extends EventHandler {
   name: 'SAVE';
   handler: (settings: Settings) => void;
 }
+
+/** ui → main: build the check page from the saved settings. */
+export interface BuildHandler extends EventHandler {
+  name: 'BUILD';
+  handler: () => void;
+}
+
+/** main → ui: the build finished (or failed with a message). */
+export interface BuiltHandler extends EventHandler {
+  name: 'BUILT';
+  handler: (result: {copies: number; gaps: number} | {error: string}) => void;
+}

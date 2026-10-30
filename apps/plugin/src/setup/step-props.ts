@@ -21,6 +21,6 @@ export function framesPerBreakpoint(rows: RouteRow[]): Map<string, number> {
   return counts;
 }
 
-export function plural(count: number, word: string): string {
-  return `${count} ${count === 1 ? word : `${word}s`}`;
+export function plural(count: number, word: string, many = `${word}s`): string {
+  return `${count} ${count === 1 ? word : many}`;
 }
