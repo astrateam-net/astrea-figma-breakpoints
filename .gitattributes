@@ -1,0 +1,15 @@
+# Reproducible line endings across macOS / Linux / Windows.
+# Text files are LF in the repo AND in the working tree (overrides core.autocrlf).
+* text=auto eol=lf
+
+# Shell scripts MUST stay LF (a CR in the shebang breaks them).
+*.sh text eol=lf
+
+# Lockfiles: never merge line-by-line, regenerate instead.
+bun.lock  -diff linguist-generated
+mise.lock -diff linguist-generated
+
+# Binary assets: never normalize.
+*.png binary
+*.jpg binary
+*.zip binary

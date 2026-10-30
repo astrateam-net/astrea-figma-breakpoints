@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "types": ["bun-types"]
+  },
+  "extends": "../packages/typescript-config/base.json",
+  "include": ["tasks/**/*.mts", "tasks/**/*.ts"]
+}

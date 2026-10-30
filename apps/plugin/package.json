@@ -1,0 +1,38 @@
+{
+  "name": "@astrea/breakpoints-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "build-figma-plugin --typecheck --minify",
+    "dev": "build-figma-plugin --typecheck --watch",
+    "lint": "biome check .",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@astrea/breakpoints-core": "workspace:*",
+    "@create-figma-plugin/ui": "4.0.3",
+    "@create-figma-plugin/utilities": "4.0.3",
+    "preact": "10.26.4"
+  },
+  "devDependencies": {
+    "@create-figma-plugin/build": "4.0.3",
+    "@create-figma-plugin/tsconfig": "4.0.3",
+    "@figma/plugin-typings": "1.142.0",
+    "typescript": "5.9.3"
+  },
+  "figma-plugin": {
+    "editorType": [
+      "figma"
+    ],
+    "id": "astrea-figma-breakpoints",
+    "name": "Astrea Breakpoints",
+    "main": "src/main.ts",
+    "ui": "src/ui.tsx",
+    "documentAccess": "dynamic-page",
+    "networkAccess": {
+      "allowedDomains": [
+        "none"
+      ]
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "exports": {
+    "./base.json": "./base.json"
+  },
+  "name": "@astrea/typescript-config",
+  "private": true,
+  "version": "0.0.0"
+}

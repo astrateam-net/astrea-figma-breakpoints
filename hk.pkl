@@ -1,0 +1,63 @@
+/// hk.pkl — git-lifecycle gate for astrea-figma-breakpoints. Steps call mise tasks. Bypass: `HK=0 git commit …` / `--no-verify`
+amends "package://github.com/jdx/hk/releases/download/v2.10.0/hk@2.10.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.10.0/hk@2.10.0#/Builtins.pkl"
+
+local hygiene = new Mapping<String, Step> {
+  ["detect-private-key"]              = Builtins.detect_private_key
+  ["check-merge-conflict"]            = Builtins.check_merge_conflict
+  ["check-added-large-files"]         = Builtins.check_added_large_files
+  ["check-case-conflict"]             = Builtins.check_case_conflict
+  ["check-symlinks"]                  = Builtins.check_symlinks
+  ["check-executables-have-shebangs"] = Builtins.check_executables_have_shebangs
+  ["trailing-whitespace"]             = Builtins.trailing_whitespace
+  ["end-of-file"]                     = Builtins.newlines
+  ["mixed-line-ending"]               = Builtins.mixed_line_ending
+}
+
+local biomeGlob = List("**/*.js", "**/*.mjs", "**/*.mts", "**/*.ts", "**/*.tsx", "**/*.json", "**/*.jsonc")
+
+hooks {
+  ["pre-commit"] {
+    fix = true
+    stash = "git"
+    steps {
+      ["no-commit-to-main"] = Builtins.no_commit_to_branch
+      ...hygiene
+      ["biome"] = new Step {
+        glob = biomeGlob
+        check = "mise run lint -- {{files}}"
+        fix = "mise run format -- {{files}}"
+      }
+    }
+  }
+
+  ["commit-msg"] {
+    steps {
+      ["conventional-commit"] = Builtins.check_conventional_commit
+    }
+  }
+
+  ["pre-push"] {
+    steps {
+      ["typecheck"] = new Step { check = "mise run typecheck" }
+      ["test"] = new Step { check = "mise run test" }
+    }
+  }
+
+  ["check"] {
+    steps {
+      ...hygiene
+      ["biome"] = new Step { check = "mise run lint" }
+      ["typecheck"] = new Step { check = "mise run typecheck" }
+      ["test"] = new Step { check = "mise run test" }
+    }
+  }
+
+  ["fix"] {
+    fix = true
+    steps {
+      ...hygiene
+      ["biome"] = new Step { fix = "mise run format" }
+    }
+  }
+}

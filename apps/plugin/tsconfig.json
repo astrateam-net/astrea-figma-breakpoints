@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "noEmit": true,
+    "skipLibCheck": true,
+    "typeRoots": ["node_modules/@figma", "node_modules/@types"]
+  },
+  "extends": "@create-figma-plugin/tsconfig",
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}
