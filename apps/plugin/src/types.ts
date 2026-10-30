@@ -1,4 +1,4 @@
-import type {BuildChange, Settings} from '@astrea/breakpoints-core';
+import type {BuildChange, Finding, Settings} from '@astrea/breakpoints-core';
 import type {EventHandler} from '@create-figma-plugin/utilities';
 import type {BuildResult, Progress} from './build';
 import type {PageInfo, ScanResult} from './scan';
@@ -9,12 +9,16 @@ export interface BuildStatus {
   exists: boolean;
   /** Routes that are new, changed or gone since the last build. */
   changes: BuildChange[];
+  /** Problems found in the built copies. */
+  findings: Finding[];
 }
 
 /** Everything the UI needs, sent by main on open, rescan, save and build. */
 export interface PluginState {
   /** No settings stored in this file yet: show the setup wizard. */
   firstRun: boolean;
+  /** Name of the Figma file, for the copied report. */
+  fileName: string;
   settings: Settings;
   pages: PageInfo[];
   scan: ScanResult;

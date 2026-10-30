@@ -1,8 +1,15 @@
-import type {BuildChange} from '@astrea/breakpoints-core';
+import {
+  type BuildChange,
+  FINDING_ORDER,
+  type Finding,
+  findingTitle,
+  reportMarkdown,
+} from '@astrea/breakpoints-core';
 import {
   Bold,
   Button,
   Container,
+  Disclosure,
   Link,
   Muted,
   Stack,
@@ -15,6 +22,23 @@ import {h} from 'preact';
 import {useEffect, useState} from 'preact/hooks';
 import type {Progress} from './build';
 import {CHECK_PAGE_NAME} from './constants';
+
+/**
+ * Copies text from the plugin window. The async Clipboard API is blocked in
+ * Figma's plugin iframe, so this uses a hidden textarea and `copy`.
+ */
+function copyText(value: string): boolean {
+  const area = document.createElement('textarea');
+  area.value = value;
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+  document.body.appendChild(area);
+  area.select();
+  const copied = document.execCommand('copy');
+  area.remove();
+  return copied;
+}
+
 import {plural} from './setup/step-props';
 import type {
   BuildHandler,
@@ -22,6 +46,7 @@ import type {
   CancelHandler,
   PluginState,
   ProgressHandler,
+  RevealHandler,
 } from './types';
 
 type Run =
@@ -70,6 +95,79 @@ function ProgressBar({progress}: {progress: Progress | null}) {
     </div>
   );
 }
+
+function findingText(finding: Finding): string {
+  const where = [finding.route, finding.theme, finding.device]
+    .filter(Boolean)
+    .join(' · ');
+  return finding.kind === 'gap'
+    ? where
+    : `${where} — ${finding.block}, ${finding.px} px`;
+}
+
+/** Problems found in the copies, grouped by kind; click selects the layer. */
+function Report({findings, markdown}: {findings: Finding[]; markdown: string}) {
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [copied, setCopied] = useState(false);
+  const copyButton = (
+    <Button onClick={() => setCopied(copyText(markdown))} secondary>
+      {copied ? 'Copied' : 'Copy report'}
+    </Button>
+  );
+  if (findings.length === 0) {
+    return (
+      <Stack space="small">
+        <Text>
+          <Muted>No problems found in the copies.</Muted>
+        </Text>
+        <div>{copyButton}</div>
+      </Stack>
+    );
+  }
+  return (
+    <div>
+      {FINDING_ORDER.map(kind => {
+        const items = findings.filter(f => f.kind === kind);
+        if (items.length === 0) return null;
+        return (
+          <Disclosure
+            key={kind}
+            onClick={() => setOpen({...open, [kind]: !open[kind]})}
+            open={open[kind] === true}
+            title={`${findingTitle(kind)} (${items.length})`}
+          >
+            <Stack space="extraSmall">
+              {items.map(finding => (
+                <button
+                  key={`${finding.nodeId}-${finding.kind}`}
+                  onClick={() =>
+                    emit<RevealHandler>('REVEAL', [finding.nodeId])
+                  }
+                  style={ROW_BUTTON}
+                  type="button"
+                >
+                  {findingText(finding)}
+                </button>
+              ))}
+            </Stack>
+          </Disclosure>
+        );
+      })}
+      <VerticalSpace space="small" />
+      {copyButton}
+    </div>
+  );
+}
+
+const ROW_BUTTON = {
+  background: 'none',
+  border: 'none',
+  color: 'var(--figma-color-text)',
+  cursor: 'pointer',
+  font: 'inherit',
+  padding: '2px 0',
+  textAlign: 'left',
+};
 
 /** The main screen: build or update the check page, with progress. */
 export function Check({
@@ -189,6 +287,26 @@ export function Check({
             {run.error}
           </span>
         </Text>
+      ) : null}
+      {build.exists ? (
+        <div>
+          <VerticalSpace space="large" />
+          <Text>
+            <Bold>Report</Bold>
+          </Text>
+          <VerticalSpace space="small" />
+          <Report
+            findings={build.findings}
+            markdown={reportMarkdown(build.findings, {
+              file: state.fileName,
+              page: CHECK_PAGE_NAME,
+              devices: settings.devices
+                .filter(d => d.enabled)
+                .map(d => `${d.name} ${d.width}×${d.height}`),
+              themes: settings.theme.modeNames,
+            })}
+          />
+        </div>
       ) : null}
       <VerticalSpace space="large" />
       <Button disabled={running} onClick={onEdit} secondary>

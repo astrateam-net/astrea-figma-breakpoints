@@ -23,6 +23,16 @@ export {
   type PlanTheme,
 } from './plan';
 export {
+  type BlockBox,
+  compareFrames,
+  FINDING_ORDER,
+  type Finding,
+  type FindingKind,
+  type FrameBox,
+  findingTitle,
+  reportMarkdown,
+} from './report';
+export {
   buildRouteTable,
   type CellFrame,
   type RouteCell,

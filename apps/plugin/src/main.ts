@@ -34,7 +34,7 @@ const DEFAULT_WINDOW = {width: 480, height: 560};
  * Bump when the look of the check page changes, so pages built by an older
  * version of the plugin show up as changed and get an Update.
  */
-const LAYOUT_VERSION = 2;
+const LAYOUT_VERSION = 3;
 
 interface Current {
   scan: ScanResult;
@@ -99,9 +99,11 @@ export default async function () {
     const build: BuildStatus = {
       exists: built.exists,
       changes: diffBuild(built.fingerprints, current.fingerprints),
+      findings: built.findings,
     };
     emit<StateHandler>('STATE', {
       firstRun,
+      fileName: figma.root.name,
       settings,
       pages: listPages(),
       scan: current.scan,

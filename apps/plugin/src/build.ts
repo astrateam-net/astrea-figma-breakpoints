@@ -1,5 +1,8 @@
 import {
+  compareFrames,
   type DeviceGroup,
+  type Finding,
+  type FrameBox,
   GROUP_ORDER,
   hashString,
   type PlanGroup,
@@ -15,6 +18,9 @@ const ROLE_ROUTE = 'route';
 const ROUTE_KEY = 'route';
 const FINGERPRINT_KEY = 'fingerprint';
 const SOURCE_KEY = 'source';
+const FINDINGS_KEY = 'findings';
+/** Findings kept per route; plugin data entries are limited to 100 kB. */
+const MAX_FINDINGS = 300;
 
 const PADDING = 160;
 const THEME_COLUMN = 480;
@@ -92,17 +98,61 @@ function findCheckPage(): PageNode | undefined {
 export async function readBuilt(): Promise<{
   exists: boolean;
   fingerprints: Record<string, string>;
+  findings: Finding[];
 }> {
   const page = findCheckPage();
-  if (!page) return {exists: false, fingerprints: {}};
+  if (!page) return {exists: false, fingerprints: {}, findings: []};
   await page.loadAsync();
   const fingerprints: Record<string, string> = {};
+  const findings: Finding[] = [];
   for (const node of page.children) {
     if (roleOf(node) !== ROLE_ROUTE) continue;
     fingerprints[node.getSharedPluginData(NAMESPACE, ROUTE_KEY)] =
       node.getSharedPluginData(NAMESPACE, FINGERPRINT_KEY);
+    findings.push(
+      ...parseFindings(node.getSharedPluginData(NAMESPACE, FINDINGS_KEY)),
+    );
   }
-  return {exists: Object.keys(fingerprints).length > 0, fingerprints};
+  return {exists: Object.keys(fingerprints).length > 0, fingerprints, findings};
+}
+
+function parseFindings(json: string): Finding[] {
+  if (!json) return [];
+  try {
+    const value: unknown = JSON.parse(json);
+    return Array.isArray(value) ? value.filter(isFinding) : [];
+  } catch {
+    return [];
+  }
+}
+
+function isFinding(value: unknown): value is Finding {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'kind' in value &&
+    'route' in value &&
+    'device' in value &&
+    'nodeId' in value &&
+    typeof value.nodeId === 'string'
+  );
+}
+
+/** Horizontal layout of a frame's blocks, for comparing copy and original. */
+function frameBox(frame: FrameNode): FrameBox {
+  return {
+    width: frame.width,
+    blocks: frame.children.map(child => ({
+      id: child.id,
+      name: child.name,
+      x: child.x,
+      width: child.width,
+      scrolls:
+        'overflowDirection' in child &&
+        (child.overflowDirection === 'HORIZONTAL' ||
+          child.overflowDirection === 'BOTH'),
+    })),
+  };
 }
 
 /**
@@ -250,6 +300,7 @@ async function buildRoute(
   section.fills = fills;
   const colors = labelColors(fills);
 
+  const findings: Finding[] = [];
   const layout = columns(route.themes[0]?.groups ?? []);
   for (const [group, x] of layout.groupX) {
     const title = text(GROUP_TITLE[group], {
@@ -283,7 +334,30 @@ async function buildRoute(
           return null;
         }
         const x = layout.itemX.get(item.device.id) ?? 0;
-        const node = (await copy(item)) ?? placeholder(item);
+        const copied = await copy(item);
+        const node = copied ?? placeholder(item);
+        const where = {
+          route: route.key,
+          theme: theme.mode,
+          device: item.device.name,
+        };
+        const original = item.sourceId
+          ? await figma.getNodeByIdAsync(item.sourceId)
+          : null;
+        if (copied && original?.type === 'FRAME') {
+          findings.push(
+            ...compareFrames(frameBox(original), frameBox(copied), where),
+          );
+        } else {
+          findings.push({
+            ...where,
+            kind: 'gap',
+            block: '',
+            nodeId: node.id,
+            sourceNodeId: null,
+            px: 0,
+          });
+        }
         const source = item.sourceId ? node.name : 'no frame';
         node.name = `${item.device.name} · ${source}`;
 
@@ -326,6 +400,11 @@ async function buildRoute(
   }
 
   section.resizeWithoutConstraints(layout.right, y - ROW_GAP + PADDING);
+  section.setSharedPluginData(
+    NAMESPACE,
+    FINDINGS_KEY,
+    JSON.stringify(findings.slice(0, MAX_FINDINGS)),
+  );
   return section;
 }
 
