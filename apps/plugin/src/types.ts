@@ -1,14 +1,24 @@
-import type {Settings} from '@astrea/breakpoints-core';
+import type {BuildChange, Settings} from '@astrea/breakpoints-core';
 import type {EventHandler} from '@create-figma-plugin/utilities';
+import type {BuildResult, Progress} from './build';
 import type {PageInfo, ScanResult} from './scan';
 
-/** Everything the UI needs, sent by main on open, rescan and save. */
+/** How the check page compares with the current screens and settings. */
+export interface BuildStatus {
+  /** The check page has been built at least once. */
+  exists: boolean;
+  /** Routes that are new, changed or gone since the last build. */
+  changes: BuildChange[];
+}
+
+/** Everything the UI needs, sent by main on open, rescan, save and build. */
 export interface PluginState {
   /** No settings stored in this file yet: show the setup wizard. */
   firstRun: boolean;
   settings: Settings;
   pages: PageInfo[];
   scan: ScanResult;
+  build: BuildStatus;
 }
 
 /** main → ui */
@@ -41,14 +51,32 @@ export interface SaveHandler extends EventHandler {
   handler: (settings: Settings) => void;
 }
 
-/** ui → main: build the check page from the saved settings. */
+/** ui → main: build everything, or only what changed. */
 export interface BuildHandler extends EventHandler {
   name: 'BUILD';
+  handler: (scope: 'all' | 'changed') => void;
+}
+
+/** ui → main: stop the running build. */
+export interface CancelHandler extends EventHandler {
+  name: 'CANCEL';
   handler: () => void;
 }
 
-/** main → ui: the build finished (or failed with a message). */
+/** main → ui: build progress. */
+export interface ProgressHandler extends EventHandler {
+  name: 'PROGRESS';
+  handler: (progress: Progress) => void;
+}
+
+/** main → ui: the build finished, was cancelled or failed. */
 export interface BuiltHandler extends EventHandler {
   name: 'BUILT';
-  handler: (result: {copies: number; gaps: number} | {error: string}) => void;
+  handler: (result: BuildResult | {status: 'failed'; error: string}) => void;
+}
+
+/** ui → main: the user dragged the window corner. */
+export interface ResizeHandler extends EventHandler {
+  name: 'RESIZE';
+  handler: (size: {width: number; height: number}) => void;
 }

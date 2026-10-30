@@ -1,6 +1,13 @@
 export {CHUNK_SIZE, splitChunks} from './chunks';
 export {DEVICE_CATALOG, type Device, type DeviceGroup} from './devices';
 export {
+  type BuildChange,
+  diffBuild,
+  hashString,
+  routeFingerprint,
+  settingsFingerprint,
+} from './fingerprint';
+export {
   DEFAULT_SUFFIXES,
   type FrameName,
   formatFrameName,

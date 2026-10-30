@@ -2,36 +2,153 @@ import {
   buildPlan,
   buildRouteTable,
   defaultSettings,
+  diffBuild,
+  type PlanRoute,
+  routeFingerprint,
+  type Settings,
+  settingsFingerprint,
 } from '@astrea/breakpoints-core';
 import {emit, on, showUI} from '@create-figma-plugin/utilities';
-import {buildCheckPage} from './build';
-import {listPages, revealNodes, scanPage} from './scan';
+import {buildCheckPage, frameSignature, readBuilt} from './build';
+import {listPages, revealNodes, type ScanResult, scanPage} from './scan';
 import {loadSettings, saveSettings} from './storage';
 import type {
   BuildHandler,
+  BuildStatus,
   BuiltHandler,
+  CancelHandler,
+  ProgressHandler,
   ReadyHandler,
+  ResizeHandler,
   RevealHandler,
   SaveHandler,
   ScanHandler,
   StateHandler,
 } from './types';
 
-export default function () {
+/** Per-user window size (clientStorage), not shared through the file. */
+const WINDOW_KEY = 'window-size';
+const DEFAULT_WINDOW = {width: 480, height: 560};
+
+interface Current {
+  scan: ScanResult;
+  plan: PlanRoute[];
+  fingerprints: Record<string, string>;
+}
+
+/** The plan for the saved settings, with a fingerprint per route. */
+async function currentPlan(
+  page: PageNode,
+  settings: Settings,
+): Promise<Current> {
+  const scan = await scanPage(page, settings.theme.collectionKey);
+  const rows = buildRouteTable(
+    scan.frames,
+    settings.breakpoints,
+    settings.overrides,
+    settings.theme.collectionKey,
+  );
+  const plan = buildPlan(rows, settings);
+  const sources: Record<string, string> = {};
+  for (const frame of scan.frames) {
+    const node = await figma.getNodeByIdAsync(frame.id);
+    if (node?.type === 'FRAME') sources[frame.id] = frameSignature(node);
+  }
+  const settingsHash = settingsFingerprint(settings);
+  const fingerprints: Record<string, string> = {};
+  for (const route of plan) {
+    fingerprints[route.key] = routeFingerprint(route, settingsHash, sources);
+  }
+  return {scan, plan, fingerprints};
+}
+
+async function storedWindowSize(): Promise<{width: number; height: number}> {
+  const size: unknown = await figma.clientStorage.getAsync(WINDOW_KEY);
+  if (
+    typeof size === 'object' &&
+    size !== null &&
+    'width' in size &&
+    'height' in size &&
+    typeof size.width === 'number' &&
+    typeof size.height === 'number'
+  ) {
+    return {width: size.width, height: size.height};
+  }
+  return DEFAULT_WINDOW;
+}
+
+export default async function () {
   const stored = loadSettings();
   let firstRun = stored === null;
   let settings = stored ?? defaultSettings();
+  let cancelled = false;
+
+  function pageFor(pageId: string | null): PageNode {
+    return figma.root.children.find(p => p.id === pageId) ?? figma.currentPage;
+  }
 
   async function sendState(pageId: string | null): Promise<void> {
-    const page =
-      figma.root.children.find(p => p.id === pageId) ?? figma.currentPage;
-    const scan = await scanPage(page, settings.theme.collectionKey);
+    const current = await currentPlan(pageFor(pageId), settings);
+    const built = await readBuilt();
+    const build: BuildStatus = {
+      exists: built.exists,
+      changes: diffBuild(built.fingerprints, current.fingerprints),
+    };
     emit<StateHandler>('STATE', {
       firstRun,
       settings,
       pages: listPages(),
-      scan,
+      scan: current.scan,
+      build,
     });
+  }
+
+  async function runBuild(scope: 'all' | 'changed'): Promise<void> {
+    const page = figma.root.children.find(p => p.id === settings.pageId);
+    if (!page) {
+      emit<BuiltHandler>('BUILT', {
+        status: 'failed',
+        error: 'The page with the screens is gone. Edit the setup.',
+      });
+      return;
+    }
+    const current = await currentPlan(page, settings);
+    const built = await readBuilt();
+    const only =
+      scope === 'changed' && built.exists
+        ? new Set(
+            diffBuild(built.fingerprints, current.fingerprints)
+              .filter(c => c.kind !== 'removed')
+              .map(c => c.route),
+          )
+        : null;
+
+    cancelled = false;
+    // Everything after this checkpoint is one undo step.
+    figma.commitUndo();
+    try {
+      const result = await buildCheckPage(current.plan, page, {
+        only,
+        fingerprints: current.fingerprints,
+        isCancelled: () => cancelled,
+        onProgress: progress => emit<ProgressHandler>('PROGRESS', progress),
+      });
+      emit<BuiltHandler>('BUILT', result);
+      if (result.status === 'built') {
+        const gaps = result.gaps > 0 ? `, ${result.gaps} without a frame` : '';
+        figma.notify(`✔ Built ${result.copies} copies${gaps}`, {
+          button: {text: 'Undo', action: () => figma.triggerUndo()},
+          timeout: 8000,
+        });
+      } else {
+        figma.notify('Build cancelled; the page is as it was');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      emit<BuiltHandler>('BUILT', {status: 'failed', error: message});
+      figma.notify(`✘ Build failed: ${message}`, {error: true});
+    }
+    await sendState(settings.pageId);
   }
 
   on<ReadyHandler>('READY', () => sendState(settings.pageId));
@@ -44,36 +161,14 @@ export default function () {
     figma.notify('✔ Settings saved in this file');
     return sendState(next.pageId);
   });
-
-  on<BuildHandler>('BUILD', async () => {
-    const page = figma.root.children.find(p => p.id === settings.pageId);
-    if (!page) {
-      emit<BuiltHandler>('BUILT', {error: 'The screens page is gone'});
-      return;
-    }
-    const scan = await scanPage(page, settings.theme.collectionKey);
-    const rows = buildRouteTable(
-      scan.frames,
-      settings.breakpoints,
-      settings.overrides,
-      settings.theme.collectionKey,
-    );
-    // Everything after this checkpoint is one undo step.
-    figma.commitUndo();
-    try {
-      const result = await buildCheckPage(buildPlan(rows, settings), page);
-      emit<BuiltHandler>('BUILT', result);
-      const gaps = result.gaps > 0 ? `, ${result.gaps} without a frame` : '';
-      figma.notify(`✔ Built ${result.copies} copies${gaps}`, {
-        button: {text: 'Undo', action: () => figma.triggerUndo()},
-        timeout: 8000,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      emit<BuiltHandler>('BUILT', {error: message});
-      figma.notify(`✘ Build failed: ${message}`, {error: true});
-    }
+  on<BuildHandler>('BUILD', scope => runBuild(scope));
+  on<CancelHandler>('CANCEL', () => {
+    cancelled = true;
+  });
+  on<ResizeHandler>('RESIZE', size => {
+    figma.ui.resize(size.width, size.height);
+    return figma.clientStorage.setAsync(WINDOW_KEY, size);
   });
 
-  showUI({height: 560, width: 480});
+  showUI(await storedWindowSize());
 }
