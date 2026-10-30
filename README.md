@@ -17,13 +17,17 @@ behaves before it reaches code.
   Each copy is the original frame resized to the device width, labelled with
   the device, size and source frame; a dashed line marks what fits on the
   screen before scrolling.
-- **Shows the truth.** A copy is an exact clone resized like dragging a
-  frame's edge, so blocks follow their own constraints and auto layout.
-  Nothing inside a copy is adjusted. Copies hold instances of the same
-  components, so edits inside blocks show without a rebuild.
+- **Tests the layout as designed.** Each preview is an exact clone of its
+  source frame, resized to the target width. The plugin does not repair
+  constraints, change layout settings, or rearrange content. It shows how
+  the Figma layout behaves, not a browser rendering.
 - **Updates only what changed.** The page remembers what it was built from.
   The button says **Build**, **Update · N changes** (with the list of new,
-  changed and removed routes) or **Up to date**.
+  changed and removed routes) or **Up to date**. Component updates
+  propagate through the instances in each preview. Changes to the original
+  frame's own layout or content require an update; Update detects changes
+  to the frame's blocks (added, removed, moved, resized). Instance overrides
+  edited in the original are not detected; use **Rebuild anyway**.
 - **Reports problems.** Each copy is compared with its original, block by
   block: a block that drifts off centre, one that no longer spans the full
   width, one that sticks out of the screen further than in the original, and
@@ -37,8 +41,9 @@ behaves before it reaches code.
 Frame naming, breakpoints and their widths, the device list and the theme
 collection are settings; the defaults follow the AstraMotors website.
 
-Not checked yet: clipped text (the Plugin API doesn't expose whether text is
-truncated).
+Not checked yet: actual text clipping or truncation. Figma exposes
+truncation settings (`textTruncation`, `maxLines`), but not a direct flag
+indicating whether a text node is currently truncated.
 
 **Status:** early development. Not yet on Figma Community.
 
