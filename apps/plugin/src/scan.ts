@@ -66,35 +66,64 @@ export async function scanPage(
   const found: FoundFrame[] = [];
   collectFrames(page, [], found);
 
-  const counts = new Map<string, number>();
-  for (const {node} of found) {
-    for (const collectionId of Object.keys(node.explicitVariableModes)) {
-      counts.set(collectionId, (counts.get(collectionId) ?? 0) + 1);
-    }
-  }
+  // Modes set on the frame or inherited from its sections. Not
+  // `resolvedVariableModes`: it lists only collections whose variables are
+  // used inside the node, so an empty frame would lose its theme.
+  const explicit = found.map(({node}) => explicitModes(node));
 
-  const collections: CollectionInfo[] = [];
-  const byKey = new Map<string, VariableCollection>();
-  for (const [id, frameCount] of counts) {
+  // One library collection can appear under several IDs (one per imported
+  // version), so collections are grouped by key and modes looked up in
+  // every version.
+  const versions = new Map<string, VariableCollection[]>();
+  const byId = new Map<string, VariableCollection>();
+  for (const id of new Set(explicit.flatMap(m => [...m.keys()]))) {
     const collection = await figma.variables.getVariableCollectionByIdAsync(id);
     if (!collection) continue;
-    byKey.set(collection.key, collection);
-    collections.push({
-      key: collection.key,
-      name: collection.name,
-      remote: collection.remote,
-      modes: collection.modes.map(mode => mode.name),
-      frameCount,
-    });
+    byId.set(id, collection);
+    versions.set(collection.key, [
+      ...(versions.get(collection.key) ?? []),
+      collection,
+    ]);
   }
-  const frames: ScannedFrame[] = found.map(({node, sections}) => {
+
+  function modeName(collection: VariableCollection, modeId: string) {
+    for (const version of [
+      collection,
+      ...(versions.get(collection.key) ?? []),
+    ]) {
+      const mode = version.modes.find(m => m.modeId === modeId);
+      if (mode) return mode.name;
+    }
+    return null;
+  }
+
+  const frameCounts = new Map<string, number>();
+  const frames: ScannedFrame[] = found.map(({node, sections}, i) => {
     const modes: Record<string, string> = {};
-    for (const collection of byKey.values()) {
-      const modeId = node.resolvedVariableModes[collection.id];
-      const mode = collection.modes.find(m => m.modeId === modeId);
-      if (mode) modes[collection.key] = mode.name;
+    for (const [id, modeId] of explicit[i] ?? []) {
+      const collection = byId.get(id);
+      const name = collection ? modeName(collection, modeId) : null;
+      if (!collection || !name) continue;
+      modes[collection.key] = name;
+      frameCounts.set(
+        collection.key,
+        (frameCounts.get(collection.key) ?? 0) + 1,
+      );
     }
     return {id: node.id, name: node.name, width: node.width, sections, modes};
+  });
+
+  const collections: CollectionInfo[] = [...versions].map(([key, list]) => {
+    const latest = list.reduce((a, b) =>
+      b.modes.length > a.modes.length ? b : a,
+    );
+    return {
+      key,
+      name: latest.name,
+      remote: latest.remote,
+      modes: latest.modes.map(mode => mode.name),
+      frameCount: frameCounts.get(key) ?? 0,
+    };
   });
 
   // Best guess for the theme: the collection whose modes differ the most
@@ -111,8 +140,25 @@ export async function scanPage(
     pageId: page.id,
     frames,
     collections,
-    themeKey: themeKey && byKey.has(themeKey) ? themeKey : guess,
+    themeKey: themeKey && versions.has(themeKey) ? themeKey : guess,
   };
+}
+
+/** Collection id → mode id set on the node, else on its nearest ancestor. */
+function explicitModes(node: SceneNode): Map<string, string> {
+  const modes = new Map<string, string>();
+  let current: BaseNode | null = node;
+  while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
+    if ('explicitVariableModes' in current) {
+      for (const [id, modeId] of Object.entries(
+        current.explicitVariableModes,
+      )) {
+        if (!modes.has(id)) modes.set(id, modeId);
+      }
+    }
+    current = current.parent;
+  }
+  return modes;
 }
 
 function pageOf(node: BaseNode): PageNode | null {
