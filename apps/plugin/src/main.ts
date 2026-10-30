@@ -30,6 +30,12 @@ import type {
 const WINDOW_KEY = 'window-size';
 const DEFAULT_WINDOW = {width: 480, height: 560};
 
+/**
+ * Bump when the look of the check page changes, so pages built by an older
+ * version of the plugin show up as changed and get an Update.
+ */
+const LAYOUT_VERSION = 2;
+
 interface Current {
   scan: ScanResult;
   plan: PlanRoute[];
@@ -54,7 +60,7 @@ async function currentPlan(
     const node = await figma.getNodeByIdAsync(frame.id);
     if (node?.type === 'FRAME') sources[frame.id] = frameSignature(node);
   }
-  const settingsHash = settingsFingerprint(settings);
+  const settingsHash = `${LAYOUT_VERSION}:${settingsFingerprint(settings)}`;
   const fingerprints: Record<string, string> = {};
   for (const route of plan) {
     fingerprints[route.key] = routeFingerprint(route, settingsHash, sources);

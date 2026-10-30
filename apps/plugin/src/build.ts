@@ -26,8 +26,16 @@ const ROUTE_GAP = 600;
 
 const FONT: FontName = {family: 'Inter', style: 'Regular'};
 const FONT_BOLD: FontName = {family: 'Inter', style: 'Semi Bold'};
-const TEXT: RGB = {r: 0.2, g: 0.2, b: 0.22};
-const MUTED: RGB = {r: 0.5, g: 0.5, b: 0.53};
+/** Section fill when the source frame is not in a section (Figma's #444). */
+const SECTION_FILL: RGB = {r: 68 / 255, g: 68 / 255, b: 68 / 255};
+const DARK_TEXT = {
+  text: {r: 0.2, g: 0.2, b: 0.22},
+  muted: {r: 0.45, g: 0.45, b: 0.48},
+};
+const LIGHT_TEXT = {
+  text: {r: 0.95, g: 0.95, b: 0.96},
+  muted: {r: 0.7, g: 0.7, b: 0.73},
+};
 const FOLD: RGB = {r: 0.85, g: 0.16, b: 0.11};
 const GAP_FILL: RGB = {r: 0.93, g: 0.93, b: 0.94};
 
@@ -131,7 +139,7 @@ async function checkPage(sourcePage: PageNode): Promise<PageNode> {
 
 function text(
   characters: string,
-  {bold = false, size = 24, color = TEXT, width = 0} = {},
+  {bold = false, size = 24, color = DARK_TEXT.text, width = 0} = {},
 ): TextNode {
   const node = figma.createText();
   node.fontName = bold ? FONT_BOLD : FONT;
@@ -150,7 +158,10 @@ function placeholder(item: PlanItem): FrameNode {
   frame.resize(item.device.width, item.device.height);
   frame.fills = [{type: 'SOLID', color: GAP_FILL}];
   frame.name = `No frame for ${item.breakpoint?.name ?? 'this width'}`;
-  const label = text(frame.name, {color: MUTED, width: item.device.width - 48});
+  const label = text(frame.name, {
+    color: DARK_TEXT.muted,
+    width: item.device.width - 48,
+  });
   frame.appendChild(label);
   label.x = 24;
   label.y = 24;
@@ -194,6 +205,35 @@ function columns(groups: PlanGroup[]): {
 
 const yieldToUi = () => new Promise(resolve => setTimeout(resolve, 0));
 
+/**
+ * The fill of the section that holds the route's frames, so copies sit on
+ * the same background as the originals (white frames on a white section
+ * would merge).
+ */
+async function sourceFills(route: PlanRoute): Promise<Paint[]> {
+  for (const theme of route.themes) {
+    for (const group of theme.groups) {
+      for (const item of group.items) {
+        if (!item.sourceId) continue;
+        const node = await figma.getNodeByIdAsync(item.sourceId);
+        const parent = node?.parent;
+        if (parent?.type === 'SECTION' && Array.isArray(parent.fills)) {
+          return [...parent.fills];
+        }
+      }
+    }
+  }
+  return [{type: 'SOLID', color: SECTION_FILL}];
+}
+
+/** Light labels on a dark background, dark labels on a light one. */
+function labelColors(fills: readonly Paint[]) {
+  const solid = fills.find((f): f is SolidPaint => f.type === 'SOLID');
+  if (!solid) return DARK_TEXT;
+  const {r, g, b} = solid.color;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.5 ? LIGHT_TEXT : DARK_TEXT;
+}
+
 async function buildRoute(
   route: PlanRoute,
   page: PageNode,
@@ -206,10 +246,17 @@ async function buildRoute(
   section.setSharedPluginData(NAMESPACE, ROUTE_KEY, route.key);
   section.setSharedPluginData(NAMESPACE, FINGERPRINT_KEY, fingerprint);
   page.appendChild(section);
+  const fills = await sourceFills(route);
+  section.fills = fills;
+  const colors = labelColors(fills);
 
   const layout = columns(route.themes[0]?.groups ?? []);
   for (const [group, x] of layout.groupX) {
-    const title = text(GROUP_TITLE[group], {bold: true, size: 64});
+    const title = text(GROUP_TITLE[group], {
+      bold: true,
+      size: 64,
+      color: colors.text,
+    });
     section.appendChild(title);
     title.x = x;
     title.y = PADDING;
@@ -220,7 +267,11 @@ async function buildRoute(
     const rowTop = y;
     let rowBottom = rowTop;
     if (theme.mode) {
-      const label = text(theme.mode, {bold: true, size: 96});
+      const label = text(theme.mode, {
+        bold: true,
+        size: 96,
+        color: colors.text,
+      });
       section.appendChild(label);
       label.x = PADDING;
       label.y = rowTop + LABEL_AREA;
@@ -239,11 +290,12 @@ async function buildRoute(
         const name = text(item.device.name, {
           bold: true,
           size: 32,
+          color: colors.text,
           width: item.device.width,
         });
         const meta = text(
           `${item.device.width} × ${item.device.height} · ${source}`,
-          {color: MUTED, width: item.device.width},
+          {color: colors.muted, width: item.device.width},
         );
         section.appendChild(name);
         section.appendChild(meta);
