@@ -160,3 +160,33 @@ export function breakpointForDevice(
   }
   return breakpointForWidth(device.width, breakpoints);
 }
+
+/** Problems that block saving the breakpoints, keyed by breakpoint id. */
+export function validateBreakpoints(
+  breakpoints: Breakpoint[],
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const widths = new Map<number, string>();
+  const suffixes = new Map<string, string>();
+  for (const breakpoint of breakpoints) {
+    const suffix = breakpoint.suffix ?? '';
+    if (breakpoint.name.trim() === '') {
+      errors[breakpoint.id] = 'Name is empty';
+    } else if (
+      !Number.isInteger(breakpoint.minWidth) ||
+      breakpoint.minWidth < 0
+    ) {
+      errors[breakpoint.id] = 'Width must be a whole number';
+    } else if (widths.has(breakpoint.minWidth)) {
+      errors[breakpoint.id] =
+        `Same width as ${widths.get(breakpoint.minWidth) ?? 'another'}`;
+    } else if (suffixes.has(suffix)) {
+      errors[breakpoint.id] = suffix
+        ? `Same suffix as ${suffixes.get(suffix) ?? 'another'}`
+        : 'Only one breakpoint can have no suffix';
+    }
+    widths.set(breakpoint.minWidth, breakpoint.name);
+    suffixes.set(suffix, breakpoint.name);
+  }
+  return errors;
+}

@@ -8,7 +8,7 @@ function frame(
   theme: string | null = 'Light',
   sections = ['Public', 'Home'],
 ): ScannedFrame {
-  return {id, name, width: 0, sections, theme};
+  return {id, name, width: 0, sections, modes: theme ? {mode: theme} : {}};
 }
 
 const frames: ScannedFrame[] = [
@@ -23,7 +23,7 @@ const frames: ScannedFrame[] = [
 ];
 
 describe('buildRouteTable', () => {
-  const rows = buildRouteTable(frames, DEFAULT_BREAKPOINTS);
+  const rows = buildRouteTable(frames, DEFAULT_BREAKPOINTS, {}, 'mode');
 
   test('one row per route and state, in page order', () => {
     expect(rows.map(r => r.key)).toEqual([
@@ -54,16 +54,26 @@ describe('buildRouteTable', () => {
   });
 
   test('a manual pick replaces the cell; null clears it', () => {
-    const fixed = buildRouteTable(frames, DEFAULT_BREAKPOINTS, {
-      'Account / Garage': {mobile: '4', desktop: null},
-      Unknown: {mobile: '1'},
-    });
+    const fixed = buildRouteTable(
+      frames,
+      DEFAULT_BREAKPOINTS,
+      {
+        'Account / Garage': {mobile: '4', desktop: null},
+        Unknown: {mobile: '1'},
+      },
+      'mode',
+    );
     const garage = fixed.find(r => r.key === 'Account / Garage');
     expect(garage?.cells.mobile).toEqual({
       frames: [{id: '4', theme: 'Light'}],
       source: 'manual',
     });
     expect(garage?.cells.desktop).toEqual({frames: [], source: 'none'});
+  });
+
+  test('without a theme collection every theme is null', () => {
+    const plain = buildRouteTable(frames, DEFAULT_BREAKPOINTS);
+    expect(plain[0]?.cells.mobile?.frames).toEqual([{id: '4', theme: null}]);
   });
 
   test('a pick of a deleted frame shows as no frame', () => {

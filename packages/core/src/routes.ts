@@ -8,8 +8,8 @@ export interface ScannedFrame {
   width: number;
   /** Names of the sections the frame sits in, outermost first. */
   sections: string[];
-  /** Mode name in the chosen theme collection; null = not set on the frame. */
-  theme: string | null;
+  /** Resolved mode name per variable collection key set on the frame. */
+  modes: Record<string, string>;
 }
 
 export interface CellFrame {
@@ -40,12 +40,16 @@ function rowKey(route: string, state: string | null): string {
 /**
  * Groups frames into rows (route + state) and columns (breakpoints) by name,
  * then applies the user's manual picks. Rows keep the order of the page.
+ * A frame's theme is its mode in the `themeKey` collection.
  */
 export function buildRouteTable(
   frames: ScannedFrame[],
   breakpoints: Breakpoint[],
   overrides: Overrides = {},
+  themeKey: string | null = null,
 ): RouteRow[] {
+  const themeOf = (frame: ScannedFrame) =>
+    themeKey ? (frame.modes[themeKey] ?? null) : null;
   const suffixes = breakpoints
     .map(b => b.suffix)
     .filter((s): s is string => s !== null);
@@ -74,7 +78,7 @@ export function buildRouteTable(
     const row = rowFor(parsed.route, parsed.state, frame.sections[0] ?? null);
     const cell = row.cells[breakpoint.id];
     if (!cell) continue;
-    cell.frames.push({id: frame.id, theme: frame.theme});
+    cell.frames.push({id: frame.id, theme: themeOf(frame)});
     cell.source = 'auto';
   }
 
@@ -85,7 +89,7 @@ export function buildRouteTable(
       if (!(breakpointId in row.cells)) continue;
       const frame = frameId ? byId.get(frameId) : undefined;
       row.cells[breakpointId] = frame
-        ? {frames: [{id: frame.id, theme: frame.theme}], source: 'manual'}
+        ? {frames: [{id: frame.id, theme: themeOf(frame)}], source: 'manual'}
         : {frames: [], source: 'none'};
     }
   }

@@ -1,15 +1,14 @@
-import type {RouteRow, Settings} from '@astrea/breakpoints-core';
+import type {Settings} from '@astrea/breakpoints-core';
 import type {EventHandler} from '@create-figma-plugin/utilities';
 import type {PageInfo, ScanResult} from './scan';
 
-/** Everything the UI shows, sent by main after every change. */
+/** Everything the UI needs, sent by main on open, rescan and save. */
 export interface PluginState {
   /** No settings stored in this file yet: show the setup wizard. */
   firstRun: boolean;
   settings: Settings;
   pages: PageInfo[];
   scan: ScanResult;
-  rows: RouteRow[];
 }
 
 /** main → ui */
@@ -34,4 +33,10 @@ export interface ScanHandler extends EventHandler {
 export interface RevealHandler extends EventHandler {
   name: 'REVEAL';
   handler: (ids: string[]) => void;
+}
+
+/** ui → main: store the settings in the file. */
+export interface SaveHandler extends EventHandler {
+  name: 'SAVE';
+  handler: (settings: Settings) => void;
 }

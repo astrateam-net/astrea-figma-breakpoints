@@ -1,38 +1,42 @@
-import {buildRouteTable, defaultSettings} from '@astrea/breakpoints-core';
+import {defaultSettings} from '@astrea/breakpoints-core';
 import {emit, on, showUI} from '@create-figma-plugin/utilities';
 import {listPages, revealNodes, scanPage} from './scan';
-import {loadSettings} from './storage';
+import {loadSettings, saveSettings} from './storage';
 import type {
   ReadyHandler,
   RevealHandler,
+  SaveHandler,
   ScanHandler,
   StateHandler,
 } from './types';
 
 export default function () {
   const stored = loadSettings();
-  const settings = stored ?? defaultSettings();
+  let firstRun = stored === null;
+  let settings = stored ?? defaultSettings();
 
   async function sendState(pageId: string | null): Promise<void> {
     const page =
       figma.root.children.find(p => p.id === pageId) ?? figma.currentPage;
     const scan = await scanPage(page, settings.theme.collectionKey);
     emit<StateHandler>('STATE', {
-      firstRun: stored === null,
+      firstRun,
       settings,
       pages: listPages(),
       scan,
-      rows: buildRouteTable(
-        scan.frames,
-        settings.breakpoints,
-        settings.overrides,
-      ),
     });
   }
 
   on<ReadyHandler>('READY', () => sendState(settings.pageId));
   on<ScanHandler>('SCAN', pageId => sendState(pageId));
   on<RevealHandler>('REVEAL', ids => revealNodes(ids));
+  on<SaveHandler>('SAVE', next => {
+    saveSettings(next);
+    settings = next;
+    firstRun = false;
+    figma.notify('✔ Settings saved in this file');
+    return sendState(next.pageId);
+  });
 
   showUI({height: 560, width: 480});
 }

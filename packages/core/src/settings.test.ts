@@ -7,6 +7,7 @@ import {
   defaultSettings,
   normalizeSettings,
   SETTINGS_VERSION,
+  validateBreakpoints,
 } from './settings';
 
 describe('breakpointForWidth', () => {
@@ -97,5 +98,29 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings(JSON.parse(JSON.stringify(settings)))).toEqual(
       settings,
     );
+  });
+});
+
+describe('validateBreakpoints', () => {
+  test('defaults are valid', () => {
+    expect(validateBreakpoints(DEFAULT_BREAKPOINTS)).toEqual({});
+  });
+
+  test('empty name, same width, same suffix, two without suffix', () => {
+    expect(
+      validateBreakpoints([
+        {id: 'a', name: 'A', suffix: 'S', minWidth: 0},
+        {id: 'b', name: ' ', suffix: 'B', minWidth: 10},
+        {id: 'c', name: 'C', suffix: 'C', minWidth: 0},
+        {id: 'd', name: 'D', suffix: 'S', minWidth: 20},
+        {id: 'e', name: 'E', suffix: null, minWidth: 30},
+        {id: 'f', name: 'F', suffix: null, minWidth: 40},
+      ]),
+    ).toEqual({
+      b: 'Name is empty',
+      c: 'Same width as A',
+      d: 'Same suffix as A',
+      f: 'Only one breakpoint can have no suffix',
+    });
   });
 });

@@ -87,28 +87,32 @@ export async function scanPage(
       frameCount,
     });
   }
-  collections.sort((a, b) => b.frameCount - a.frameCount);
-
-  // Best guess: the collection set on most frames that has several modes.
-  const resolvedKey =
-    themeKey && byKey.has(themeKey)
-      ? themeKey
-      : (collections.find(c => c.modes.length > 1)?.key ?? null);
-  const theme = resolvedKey ? byKey.get(resolvedKey) : undefined;
-
   const frames: ScannedFrame[] = found.map(({node, sections}) => {
-    const modeId = theme ? node.resolvedVariableModes[theme.id] : undefined;
-    const mode = theme?.modes.find(m => m.modeId === modeId);
-    return {
-      id: node.id,
-      name: node.name,
-      width: node.width,
-      sections,
-      theme: mode?.name ?? null,
-    };
+    const modes: Record<string, string> = {};
+    for (const collection of byKey.values()) {
+      const modeId = node.resolvedVariableModes[collection.id];
+      const mode = collection.modes.find(m => m.modeId === modeId);
+      if (mode) modes[collection.key] = mode.name;
+    }
+    return {id: node.id, name: node.name, width: node.width, sections, modes};
   });
 
-  return {pageId: page.id, frames, collections, themeKey: resolvedKey};
+  // Best guess for the theme: the collection whose modes differ the most
+  // between frames (Light / Dark), then the one set on most frames.
+  const usedModes = (key: string) =>
+    new Set(frames.map(f => f.modes[key]).filter(Boolean)).size;
+  collections.sort(
+    (a, b) =>
+      usedModes(b.key) - usedModes(a.key) || b.frameCount - a.frameCount,
+  );
+  const guess = collections.find(c => usedModes(c.key) > 1)?.key ?? null;
+
+  return {
+    pageId: page.id,
+    frames,
+    collections,
+    themeKey: themeKey && byKey.has(themeKey) ? themeKey : guess,
+  };
 }
 
 function pageOf(node: BaseNode): PageNode | null {

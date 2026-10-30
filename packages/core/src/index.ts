@@ -25,4 +25,5 @@ export {
   type Settings,
   sortBreakpoints,
   type ThemeSettings,
+  validateBreakpoints,
 } from './settings';
