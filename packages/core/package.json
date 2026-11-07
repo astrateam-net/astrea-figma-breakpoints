@@ -15,7 +15,7 @@
   },
   "devDependencies": {
     "@astrea/typescript-config": "workspace:*",
-    "bun-types": "1.3.4",
+    "bun-types": "1.4.4",
     "typescript": "5.9.3"
   }
 }
