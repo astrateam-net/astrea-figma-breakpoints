@@ -18,7 +18,7 @@
     "@create-figma-plugin/build": "4.0.3",
     "@create-figma-plugin/tsconfig": "4.0.3",
     "@figma/plugin-typings": "1.142.0",
-    "typescript": "5.9.3"
+    "typescript": "7.0.2"
   },
   "figma-plugin": {
     "editorType": [
