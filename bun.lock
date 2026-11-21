@@ -23,7 +23,7 @@
       "devDependencies": {
         "@create-figma-plugin/build": "4.0.3",
         "@create-figma-plugin/tsconfig": "4.0.3",
-        "@figma/plugin-typings": "1.142.0",
+        "@figma/plugin-typings": "1.143.0",
         "typescript": "5.9.3",
       },
     },
@@ -128,7 +128,7 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.1", "", { "os": "win32", "cpu": "x64" }, "sha512-Y1EQdcfwMSeQN/ujR5VayLOJ1BHaK+ssyk0AEzPjC+t1lITgsnccPqFjb6V+LsTp/9Iov4ysfjxLaGJ9RPtkVg=="],
 
-    "@figma/plugin-typings": ["@figma/plugin-typings@1.142.0", "", {}, "sha512-Loa9P4bUZi/pQejic8OYQSU4Zz9izJdIiDUkkKddq5Bfc5JPRV6pCeg3C8owovbX9lKshaFym86PlMhKZgLeBw=="],
+    "@figma/plugin-typings": ["@figma/plugin-typings@1.143.0", "", {}, "sha512-7oP0XwTiuAuQPRNmuPX4PeRP5fjLMnRZ6Ed7Ybr61JoW9Os04Eml/XqYE3kyvohcFQfYXsRK5sqCLaKzc8qnZg=="],
 
     "@isaacs/cliui": ["@isaacs/cliui@8.0.2", "", { "dependencies": { "string-width": "^5.1.2", "string-width-cjs": "npm:string-width@^4.2.0", "strip-ansi": "^7.0.1", "strip-ansi-cjs": "npm:strip-ansi@^6.0.1", "wrap-ansi": "^8.1.0", "wrap-ansi-cjs": "npm:wrap-ansi@^7.0.0" } }, "sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA=="],
 
